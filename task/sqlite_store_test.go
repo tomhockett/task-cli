@@ -50,7 +50,7 @@ func TestSQLiteStore_List(t *testing.T) {
 	store.Add("Buy groceries", task.AddOptions{})
 	store.Add("Walk the dog", task.AddOptions{})
 
-	tasks, err := store.List()
+	tasks, err := store.List(task.ListOptions{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestSQLiteStore_Complete(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	tasks, _ := store.List()
+	tasks, _ := store.List(task.ListOptions{})
 	if tasks[0].Status != task.StatusDone {
 		t.Errorf("got status %v, want StatusDone", tasks[0].Status)
 	}
@@ -102,7 +102,7 @@ func TestSQLiteStore_Delete(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	tasks, _ := store.List()
+	tasks, _ := store.List(task.ListOptions{})
 	if len(tasks) != 1 {
 		t.Fatalf("got %d tasks after delete, want 1", len(tasks))
 	}

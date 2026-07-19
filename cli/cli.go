@@ -64,7 +64,24 @@ func (c *CLI) Run(s []string) error {
 		}
 		fmt.Fprintf(c.out, "Added task %d\n", t.ID)
 	case "list":
-		tasks, err := c.store.List()
+		listFlags := flag.NewFlagSet("list", flag.ContinueOnError)
+		status := listFlags.String("status", "", "Filter by status: todo, done")
+		tag := listFlags.String("tag", "", "Filter by tag")
+		if err := listFlags.Parse(s[1:]); err != nil {
+			return err
+		}
+
+		var opts task.ListOptions
+		if *status != "" {
+			taskStatus, err := c.parseStatus(*status)
+			if err != nil {
+				return err
+			}
+			opts.Status = &taskStatus
+		}
+		opts.Tag = *tag
+
+		tasks, err := c.store.List(opts)
 		if err != nil {
 			return err
 		}
@@ -106,6 +123,17 @@ func (c *CLI) parseID(s string) (int, error) {
 		return 0, fmt.Errorf("invalid task ID: %q", s)
 	}
 	return id, nil
+}
+
+func (c *CLI) parseStatus(s string) (task.Status, error) {
+	switch s {
+	case "todo":
+		return task.StatusTodo, nil
+	case "done":
+		return task.StatusDone, nil
+	default:
+		return 0, fmt.Errorf("invalid status: %q", s)
+	}
 }
 
 func (c *CLI) parsePriority(s string) (task.Priority, error) {

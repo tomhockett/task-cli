@@ -12,7 +12,7 @@ var ErrTaskNotFound = errors.New("task not found")
 // In Go, you define it explicitly so you can swap implementations.
 type TaskStore interface {
 	Add(title string, opts AddOptions) (Task, error)
-	List() ([]Task, error)
+	List(opts ListOptions) ([]Task, error)
 	Complete(id int) error
 	Delete(id int) error
 }

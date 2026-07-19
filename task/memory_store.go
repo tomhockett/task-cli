@@ -41,8 +41,14 @@ func (s *InMemoryTaskStore) Add(title string, opts AddOptions) (Task, error) {
 	return t, nil
 }
 
-func (s *InMemoryTaskStore) List() ([]Task, error) {
-	return s.tasks, nil
+func (s *InMemoryTaskStore) List(opts ListOptions) ([]Task, error) {
+	var tasks []Task
+	for _, t := range s.tasks {
+		if opts.matches(t) {
+			tasks = append(tasks, t)
+		}
+	}
+	return tasks, nil
 }
 
 func (s *InMemoryTaskStore) Complete(id int) error {

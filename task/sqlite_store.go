@@ -108,8 +108,16 @@ func (s *SQLiteStore) Delete(id int) error {
 	return nil
 }
 
-func (s *SQLiteStore) List() ([]Task, error) {
-	results, err := s.db.Query("SELECT id, title, status, priority, tags, created_at, completed_at FROM tasks ORDER BY id")
+func (s *SQLiteStore) List(opts ListOptions) ([]Task, error) {
+	// Build the query dynamically — like an AR scope chain adding WHERE clauses.
+	query := "SELECT id, title, status, priority, tags, created_at, completed_at FROM tasks"
+	var args []any
+	if opts.Status != nil {
+		query += " WHERE status = ?"
+		args = append(args, *opts.Status)
+	}
+	query += " ORDER BY id"
+	results, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +132,11 @@ func (s *SQLiteStore) List() ([]Task, error) {
 		}
 		if tagsStr.Valid && tagsStr.String != "" {
 			t.Tags = strings.Split(tagsStr.String, ",")
+		}
+		// Tags are stored comma-joined, so SQL LIKE can't do an exact match
+		// ("work" would also match "workout"). Filter after scanning instead.
+		if !opts.matches(t) {
+			continue
 		}
 		tasks = append(tasks, t)
 	}

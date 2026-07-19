@@ -107,6 +107,58 @@ func TestCLI_List_Empty(t *testing.T) {
 	}
 }
 
+func TestCLI_List_FilterByStatus(t *testing.T) {
+	c, buf := newTestCLI()
+
+	c.Run([]string{"add", "Buy groceries"})
+	c.Run([]string{"add", "Walk the dog"})
+	c.Run([]string{"done", "1"})
+
+	buf.Reset()
+	err := c.Run([]string{"list", "--status", "done"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := buf.String()
+	if !contains(got, "Buy groceries") {
+		t.Errorf("output missing completed task %q:\n%s", "Buy groceries", got)
+	}
+	if contains(got, "Walk the dog") {
+		t.Errorf("output should not include todo task %q:\n%s", "Walk the dog", got)
+	}
+}
+
+func TestCLI_List_FilterByTag(t *testing.T) {
+	c, buf := newTestCLI()
+
+	c.Run([]string{"add", "--tag", "work", "Finish report"})
+	c.Run([]string{"add", "--tag", "home", "Mow the lawn"})
+
+	buf.Reset()
+	err := c.Run([]string{"list", "--tag", "work"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := buf.String()
+	if !contains(got, "Finish report") {
+		t.Errorf("output missing tagged task %q:\n%s", "Finish report", got)
+	}
+	if contains(got, "Mow the lawn") {
+		t.Errorf("output should not include untagged task %q:\n%s", "Mow the lawn", got)
+	}
+}
+
+func TestCLI_List_InvalidStatus(t *testing.T) {
+	c, _ := newTestCLI()
+
+	err := c.Run([]string{"list", "--status", "nonsense"})
+	if err == nil {
+		t.Fatal("expected an error for invalid status but got nil")
+	}
+}
+
 func TestCLI_Done(t *testing.T) {
 	store := task.NewInMemoryTaskStore()
 	buf := &bytes.Buffer{}
@@ -120,7 +172,7 @@ func TestCLI_Done(t *testing.T) {
 	}
 
 	// Verify state directly via the store
-	tasks, _ := store.List()
+	tasks, _ := store.List(task.ListOptions{})
 	if tasks[0].Status != task.StatusDone {
 		t.Errorf("got status %v, want StatusDone", tasks[0].Status)
 	}
@@ -165,7 +217,7 @@ func TestCLI_Delete(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	tasks, _ := store.List()
+	tasks, _ := store.List(task.ListOptions{})
 	if len(tasks) != 0 {
 		t.Errorf("got %d tasks after delete, want 0", len(tasks))
 	}
