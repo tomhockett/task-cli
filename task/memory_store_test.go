@@ -23,7 +23,7 @@ func TestInMemoryStore_AddAndList(t *testing.T) {
 	assertEqual(t, t2.Title, "Walk the dog")
 
 	// List returns both
-	tasks, err := store.List()
+	tasks, err := store.List(task.ListOptions{})
 	assertNoError(t, err)
 	assertEqual(t, len(tasks), 2)
 }
@@ -31,7 +31,7 @@ func TestInMemoryStore_AddAndList(t *testing.T) {
 func TestInMemoryStore_ListEmpty(t *testing.T) {
 	store := task.NewInMemoryTaskStore()
 
-	tasks, err := store.List()
+	tasks, err := store.List(task.ListOptions{})
 	assertNoError(t, err)
 	assertEqual(t, len(tasks), 0)
 }
@@ -43,7 +43,7 @@ func TestInMemoryStore_Complete(t *testing.T) {
 	err := store.Complete(1)
 	assertNoError(t, err)
 
-	tasks, _ := store.List()
+	tasks, _ := store.List(task.ListOptions{})
 	assertEqual(t, tasks[0].Status, task.StatusDone)
 	if tasks[0].CompletedAt == nil {
 		t.Error("expected CompletedAt to be set after completing")
@@ -65,7 +65,7 @@ func TestInMemoryStore_Delete(t *testing.T) {
 	err := store.Delete(1)
 	assertNoError(t, err)
 
-	tasks, _ := store.List()
+	tasks, _ := store.List(task.ListOptions{})
 	assertEqual(t, len(tasks), 1)
 	assertEqual(t, tasks[0].ID, 2)
 }

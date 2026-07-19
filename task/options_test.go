@@ -50,7 +50,7 @@ func TestSQLiteStore_AddWithPriority(t *testing.T) {
 	}
 
 	// Verify it persisted correctly
-	tasks, err := store.List()
+	tasks, err := store.List(task.ListOptions{})
 	if err != nil {
 		t.Fatalf("unexpected error from List: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestSQLiteStore_AddWithTags(t *testing.T) {
 	}
 
 	// Verify tags persisted correctly
-	tasks, err := store.List()
+	tasks, err := store.List(task.ListOptions{})
 	if err != nil {
 		t.Fatalf("unexpected error from List: %v", err)
 	}
