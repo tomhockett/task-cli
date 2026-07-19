@@ -1,77 +1,110 @@
-# Task Manager CLI
-A simple task manager CLI written in Go. 100% testable.
+# task-cli
 
-## Phase 1: In-Memory Domain Logic
+A simple task manager for your terminal, written in Go and backed by SQLite. Add tasks with priorities and tags, list and filter them, mark them done, and delete them — your tasks persist between runs.
 
-**Go concepts**: structs, `iota` enums, interfaces, pointer receivers, slices, sentinel errors, `time.Time`
-**Rails analogy**: Task struct = AR model (explicit fields, no magic). TaskStore interface = the contract AR provides. InMemoryTaskStore = testing with a mock adapter.
+## Requirements
 
-| Step | What we build | Key test |
-|------|--------------|----------|
-| 1.1 | `Task` struct, `Status`/`Priority` types with `iota`, `String()` methods | Create a Task, assert fields |
-| 1.2 | `TaskStore` interface in `store.go` (Add, List, Complete, Delete) | No tests — just the contract |
-| 1.3 | `InMemoryTaskStore`: `Add` and `List` | Add 2 tasks, list them, verify IDs auto-increment |
-| 1.4 | `InMemoryTaskStore`: `Complete` | Complete a task, assert Status=Done + CompletedAt set. Complete non-existent → `ErrTaskNotFound` |
-| 1.5 | `InMemoryTaskStore`: `Delete` | Delete a task, verify list shrinks. Delete non-existent → `ErrTaskNotFound` |
-| 1.6 | Extract `assert_test.go` with generic helpers | `assertEqual[T]`, `assertString`, `assertNoError`, `assertError`, `assertNotNil[T]` |
+- [Go](https://go.dev/dl/) 1.25 or newer
 
-**Checkpoint**: `go test ./task/...` passes. Pure logic, zero I/O.
+That's it. The SQLite driver ([modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite)) is pure Go, so there's no cgo toolchain or system SQLite installation needed.
 
----
+## Installation
 
-## Phase 2: CLI Layer
+Install directly with `go install`:
 
-**Go concepts**: `os.Args`, `io.Writer` for testable output, `bytes.Buffer`, `strconv.Atoi`, `fmt.Fprintf`
-**Rails analogy**: CLI dispatch = router mapping verbs to actions. `io.Writer` injection = `$stdout` injection in service tests.
+```bash
+go install github.com/tomhockett/task-cli/cmd/task@latest
+```
 
-| Step | What we build | Key test |
-|------|--------------|----------|
-| 2.1 | `CLI` struct with `store` + `out io.Writer`, `Run(args []string) error`, `add` command | `add "Buy groceries"` → store has 1 task, buffer contains "Added task 1" |
-| 2.2 | `list` command + `FormatTaskTable` in `format.go` | List 2 tasks → output contains IDs, titles, statuses. Empty list → "No tasks" |
-| 2.3 | `done` command | `done 1` → task is StatusDone. `done abc` → "invalid task ID" error. `done 999` → ErrTaskNotFound |
-| 2.4 | `delete` command | Same error-case pattern as `done` |
-| 2.5 | Unknown command + no-args handling | `frobnicate` → "unknown command". No args → usage message |
-| 2.6 | `cmd/task/main.go` wiring (InMemoryTaskStore for now) | Manual test: `go run ./cmd/task add "Hello"` |
+Or clone and build from source:
 
-**Checkpoint**: `go test ./...` passes. CLI is fully testable via buffer injection. Data doesn't persist yet (intentional).
+```bash
+git clone https://github.com/tomhockett/task-cli.git
+cd task-cli
+go build -o task ./cmd/task
+```
 
----
+## Setup
 
-## Phase 3: SQLite Persistence
+None required. On first run, `task` creates its database automatically at:
 
-**Go concepts**: `database/sql`, `sql.Open`, `defer db.Close()`, `db.Exec`/`db.Query`/`db.QueryRow`, `rows.Scan`, `t.TempDir()`, `go get`
-**Rails analogy**: `db.Exec(CREATE TABLE)` = migration. `rows.Scan` = manual column-to-field mapping (no ORM). `t.TempDir()` = DatabaseCleaner.
+```
+~/.task-cli/tasks.db
+```
 
-| Step | What we build | Key test |
-|------|--------------|----------|
-| 3.1 | `go get modernc.org/sqlite` | — |
-| 3.2 | `NewSQLiteStore(path)` — opens DB, runs `CREATE TABLE IF NOT EXISTS` | Open temp DB, add a task, no error |
-| 3.3 | `SQLiteStore.Add` | Add task → verify ID, title, status |
-| 3.4 | `SQLiteStore.List` | Add 2 tasks → list returns both, fields scanned correctly |
-| 3.5 | `SQLiteStore.Complete` | Complete → status + completed_at updated. Not found → ErrTaskNotFound (via RowsAffected) |
-| 3.6 | `SQLiteStore.Delete` | Same RowsAffected pattern |
-| 3.7 | `newTestStore(t)` helper + compile-time interface check: `var _ task.TaskStore = (*task.SQLiteStore)(nil)` | — |
-| 3.8 | Wire SQLite into `main.go` with `~/.task-cli/tasks.db` | Manual test: add, quit, list — data persists |
+To start fresh, delete that file.
 
-**Checkpoint**: `go test ./...` passes. Tasks survive between runs.
+## Usage
 
----
+```
+task <command> [flags] [args]
+```
 
-## Phase 4: Polish
+### Commands
 
-**Go concepts**: `flag.NewFlagSet` per subcommand, `encoding/json` + struct tags, `strings.Split`/`Join`, pointer-for-optional pattern, `fmt.Errorf` with `%w`
-**Rails analogy**: `flag.NewFlagSet` = Thor's `method_option`. `json:"title"` struct tags = `as_json(only: [...])`. `ListOptions{Status: &s}` = AR scopes.
+| Command | Description | Example |
+|---------|-------------|---------|
+| `add <title>` | Add a new task | `task add Buy groceries` |
+| `list` | List tasks | `task list` |
+| `done <id>` | Mark a task as done | `task done 1` |
+| `delete <id>` | Delete a task | `task delete 1` |
 
-| Step | What we build | Key test |
-|------|--------------|----------|
-| 4.1 | `AddOptions` struct (title, priority, tags) — update interface + both stores | Add with priority=high + tags=["work"] → stored correctly |
-| 4.2 | CLI `add --priority high --tag work` via `flag.NewFlagSet` | Parse flags, verify task created with options |
-| 4.3 | `ListOptions` struct (Status *Status, Tag string) — filter in both stores | List --status=done → only done tasks. List --tag=work → only tagged tasks |
-| 4.4 | `--format=json` on list command + `json:"..."` struct tags | JSON decode output → valid task array |
-| 4.5 | Error UX: wrap errors with `%w`, helpful messages for bad input | `done abc` → `"abc" is not a valid task ID` |
-| 4.6 | End-to-end integration test in `cmd/task/main_test.go` | Full flow: add → list → done → filter → json → delete |
+### `add` flags
 
-**Checkpoint**: `go test ./...` passes. Feature-complete CLI.
+| Flag | Values | Default | Description |
+|------|--------|---------|-------------|
+| `--priority` | `low`, `medium`, `high` | `medium` | Set the task's priority |
+| `--tag` | any string | — | Tag the task (repeatable) |
 
----
+```bash
+task add --priority high --tag work --tag urgent Finish the quarterly report
+```
 
+Flags come before the title; everything after the flags is joined into the title, so quotes are optional.
+
+### `list` flags
+
+| Flag | Values | Default | Description |
+|------|--------|---------|-------------|
+| `--status` | `todo`, `done` | show all | Filter by status |
+| `--tag` | any string | show all | Filter to tasks with an exact matching tag |
+
+```bash
+task list --status done
+task list --tag work
+```
+
+### Example session
+
+```bash
+$ task add Buy groceries
+Added task 1
+$ task add --priority high --tag work Prepare demo
+Added task 2
+$ task list
+1, Buy groceries, todo
+2, Prepare demo, todo
+$ task done 1
+$ task list --status done
+1, Buy groceries, done
+```
+
+## Development
+
+The codebase is fully testable without touching your real database — the CLI writes to an injected `io.Writer`, stores implement a common `TaskStore` interface (in-memory and SQLite), and SQLite tests run against temp files via `t.TempDir()`.
+
+```bash
+go test ./...        # run all tests
+go test -v ./...     # verbose
+go vet ./...         # static checks
+go run ./cmd/task    # run without installing
+```
+
+### Project layout
+
+```
+cmd/task/   main entry point — wires the SQLite store into the CLI
+cli/        command dispatch, flag parsing, and output formatting
+task/       domain types (Task, Status, Priority) and the TaskStore
+            interface with in-memory and SQLite implementations
+```
