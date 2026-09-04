@@ -49,7 +49,7 @@ func (c *CLI) Run(s []string) error {
 			return fmt.Errorf("missing task title")
 		}
 		title := strings.Join(args, " ") // join multi-word titles
-		taskPriority, err := c.parsePriority(*priority)
+		taskPriority, err := task.ParsePriority(*priority)
 		if err != nil {
 			return err
 		}
@@ -67,13 +67,14 @@ func (c *CLI) Run(s []string) error {
 		listFlags := flag.NewFlagSet("list", flag.ContinueOnError)
 		status := listFlags.String("status", "", "Filter by status: todo, done")
 		tag := listFlags.String("tag", "", "Filter by tag")
+		format := listFlags.String("format", "table", "Output format: table, json")
 		if err := listFlags.Parse(s[1:]); err != nil {
 			return err
 		}
 
 		var opts task.ListOptions
 		if *status != "" {
-			taskStatus, err := c.parseStatus(*status)
+			taskStatus, err := task.ParseStatus(*status)
 			if err != nil {
 				return err
 			}
@@ -85,7 +86,10 @@ func (c *CLI) Run(s []string) error {
 		if err != nil {
 			return err
 		}
-		output := FormatTaskTable(tasks)
+		output, err := formatTasks(tasks, *format)
+		if err != nil {
+			return err
+		}
 		fmt.Fprint(c.out, output)
 	case "done":
 		if len(s) < 2 {
@@ -117,34 +121,23 @@ func (c *CLI) Run(s []string) error {
 	return nil
 }
 
+// formatTasks picks the renderer for --format. Keeping the switch here means
+// Run doesn't have to know how either format is produced.
+func formatTasks(tasks []task.Task, format string) (string, error) {
+	switch format {
+	case "table":
+		return FormatTaskTable(tasks), nil
+	case "json":
+		return FormatTaskJSON(tasks)
+	default:
+		return "", fmt.Errorf("%q is not a valid format (want: table, json)", format)
+	}
+}
+
 func (c *CLI) parseID(s string) (int, error) {
 	id, err := strconv.Atoi(s)
 	if err != nil {
 		return 0, fmt.Errorf("invalid task ID: %q", s)
 	}
 	return id, nil
-}
-
-func (c *CLI) parseStatus(s string) (task.Status, error) {
-	switch s {
-	case "todo":
-		return task.StatusTodo, nil
-	case "done":
-		return task.StatusDone, nil
-	default:
-		return 0, fmt.Errorf("invalid status: %q", s)
-	}
-}
-
-func (c *CLI) parsePriority(s string) (task.Priority, error) {
-	switch s {
-	case "low":
-		return task.PriorityLow, nil
-	case "medium":
-		return task.PriorityMedium, nil
-	case "high":
-		return task.PriorityHigh, nil
-	default:
-		return 0, fmt.Errorf("invalid priority: %q", s)
-	}
 }
