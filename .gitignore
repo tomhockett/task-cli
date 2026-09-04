@@ -1,0 +1,11 @@
+# Compiled binaries.
+# NOTE: rules here must not be a bare "task" — that would also ignore the
+# task/ package directory. Match the built binaries by their exact paths.
+/bin/
+/task-cli
+task/task
+cmd/task/task
+
+# Test binaries and coverage output
+*.test
+coverage.out
