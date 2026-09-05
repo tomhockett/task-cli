@@ -4,7 +4,7 @@ A simple task manager for your terminal, written in Go and backed by SQLite. Add
 
 ## Requirements
 
-- [Go](https://go.dev/dl/) 1.25 or newer
+- [Go](https://go.dev/dl/) 1.27 or newer
 
 That's it. The SQLite driver ([modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite)) is pure Go, so there's no cgo toolchain or system SQLite installation needed.
 
